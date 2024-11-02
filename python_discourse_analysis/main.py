@@ -1,5 +1,4 @@
-# -------------------------- IMPORTS AND INITIAL SETUP -------------------------- #
-import os
+# # -------------------------- IMPORTS AND INITIAL SETUP -------------------------- #
 import os
 import numpy as np
 import spacy
@@ -20,7 +19,7 @@ def get_corpus_dict(corpus_path):
 
     return corpus_dict
 
-folder_path =  os.path.join("../", "US_Inaugural_Addresses")
+folder_path =  os.path.join(os.getcwd(), "US_Inaugural_Addresses")
 corpus_dict = get_corpus_dict(folder_path)
 
 # ------------------------- PREPROCESS CORPUS: TOKENIZATION AND CLEANING ------------------------- #
@@ -28,7 +27,7 @@ def preprocess_corpus(corpus_dict):
 
     for file_name, content in corpus_dict.items():
         doc = nlp(content)
-        unwanted_tokens = {"<", ">", "br", "--", "'re", "'m", "'ve","n't", "br>--that"}
+        unwanted_tokens = {"<", ">", "br", "--", "'re", "'m", "'ve","n't", "br>--that", "'s"}
         
         tokenized = [
             token.text.lower() for token in doc 
@@ -53,7 +52,6 @@ vocabulary =list(vocab_set)
 
 # ------------------------- FEATURE REPRESENTATION: BINARY VECTORS ------------------------- #
 def get_feature_dict(corpus_dict):
-    vocab_set = get_vocab_set(corpus_dict)
     w2i = {word: i for i, word in enumerate(vocab_set)}
     n = len(vocab_set)
 
@@ -144,7 +142,7 @@ class InverseDocumentFrequency:
 
 
     def get_idf(self, word):
-        corpus_path =  os.path.join("../", self.directory_name)
+        corpus_path =  os.path.join(os.getcwd(), self.directory_name)
         total_docs = len(os.listdir(corpus_path))
         df= np.sum([1 for doc in preprocessed_dict.values() if word in doc])
         
@@ -153,7 +151,6 @@ class InverseDocumentFrequency:
             return idf
 
 idf_calculator = InverseDocumentFrequency("US_Inaugural_Addresses")
-
 
 # ------------------------- TF-IDF REPRESENTATION OF DOCUMENTS ------------------------- #
 class DocumentV2:
@@ -168,7 +165,7 @@ class DocumentV2:
             tf_idf_vector = np.zeros(vector.shape[0],dtype=float)
 
             for component_idx, component in enumerate(vector):
-                word = list(vocab_set)[component_idx]
+                word = vocabulary[component_idx]
 
                 if component == 1:         
                     tf = sum(1 for token in preprocessed_dict[file_name] if token == word)
@@ -183,48 +180,83 @@ class DocumentV2:
 
 
     def get_topN(self, tf_idf_dict, topN):
-        vocabulary = list(vocab_set)
         importance_dict = {}
 
         for file_name in sorted(tf_idf_dict.keys()):
             tfidf_vector = tf_idf_dict[file_name]
-            importance_list = set()
+            importance_set = set()
 
             for score_idx, score in enumerate(tfidf_vector):
                 word = vocabulary[score_idx]
-                importance_list.add((word, score))
+                importance_set.add((word, score))
             
-            topN_words = sorted(importance_list, key=lambda x: x[1], reverse=True)[:topN]
+            topN_words = sorted(importance_set, key=lambda x: x[1], reverse=True)[:topN]
             importance_dict[file_name] = topN_words
 
             print(f"\nSpeech: {file_name}, Top Words: ")
             for idx, info_tuple in enumerate(topN_words):
                 print(idx, info_tuple)
-            
+        return importance_dict
 
 documents = DocumentV2(feature_dict)
 tf_idf_dict = documents.get_tf_idf_dict()
-documents.get_topN(tf_idf_dict, 10)
+topN_words_dict = documents.get_topN(tf_idf_dict, 10)
 
 
 ## ------------------------- IMPORTANCE OF SELECT WORDS ACROSS CORPUS ------------------------- #
-target_words = ['government', 'borders', 'people', 'obama', 'war', 'honor','foreign', 'men', 'women', 'children']
-importance_dict = {}
+# target_words = ['government', 'borders', 'people', 'obama', 'war', 'honor','foreign', 'men', 'women', 'children']
+# importance_dict = {}
 
-for file_name in sorted(tf_idf_dict.keys()):
-    tfidf_vector = tf_idf_dict[file_name]
-    importance_list = []
+# for file_name in sorted(tf_idf_dict.keys()):
+#     tfidf_vector = tf_idf_dict[file_name]
+#     importance_list = []
 
-    for target_word in target_words:
-        if target_word in vocabulary:
-            score_idx = vocabulary.index(target_word)
-            score = tfidf_vector[score_idx]
-            info_tuple = (target_word, score)
-            importance_list.append(info_tuple)
+#     for target_word in target_words:
+#         if target_word in vocabulary:
+#             score_idx = vocabulary.index(target_word)
+#             score = tfidf_vector[score_idx]
+#             info_tuple = (target_word, score)
+#             importance_list.append(info_tuple)
   
-    importance_dict[file_name] = importance_list
+#     importance_dict[file_name] = importance_list
 
-    print(f"\nSpeech: {file_name}, Top Words: ")
-    for idx, info_tuple in enumerate(importance_list):
-        print(idx, info_tuple)
-    
+#     print(f"\nSpeech: {file_name}, Top Words: ")
+#     for idx, info_tuple in enumerate(importance_list):
+#         print(idx, info_tuple)
+
+# ----------------------------------- VISUALIZATION ------------------------------------ #
+data_scores = {}
+data_words = {}
+for speech_name, info_tuple_list in topN_words_dict.items():
+    words = [word for word, score in info_tuple_list]
+    scores = [score for word, score in info_tuple_list]
+    data_words[speech_name] = words
+    data_scores[speech_name] = scores
+
+df_words = pd.DataFrame.from_dict(data_words, orient='index', columns=range(1, 11)) 
+df_scores = pd.DataFrame.from_dict(data_scores, orient='index', columns=range(1, 11)) 
+df_scores_normalized = (df_scores - df_scores.min().min()) / (df_scores.max().max() - df_scores.min().min())
+
+plt.figure(figsize=(18, 12))
+heatmap = sns.heatmap(
+    df_scores_normalized,
+    annot=df_words,                  
+    fmt="",                      
+    cmap="YlGnBu",                 
+    cbar=True,                      
+    cbar_kws={'label': 'Normalized TF-IDF Score'},  
+    linewidths=1,                  
+    annot_kws={"size": 10},          
+    vmin=0.10, vmax=0.35)
+
+heatmap.set_xticklabels(range(1, 11), rotation=0, ha="center", fontsize=10)
+total_speeches = len(df_words)
+Y_Tick_List = list(range(total_speeches))
+Y_Tick_Label_List = df_words.index.tolist() 
+plt.yticks(ticks=Y_Tick_List, labels=Y_Tick_Label_List, rotation=0, fontsize=10)
+plt.xlabel("Word Rank")
+plt.ylabel("Speeches")
+plt.title("Top 10 Words Across Presidential Eras", size=20)
+plt.tight_layout()
+plt.savefig("top_10_words_heatmap.png", format="png", dpi=300, bbox_inches="tight")
+plt.show()
