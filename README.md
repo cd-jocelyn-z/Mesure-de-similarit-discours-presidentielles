@@ -3,10 +3,12 @@ This project uses the TF-IDF statistical measure to uncover hidden connections a
 
 
 ## Structure
-- `Main.java`: Java implementation of the similarity measurement.
 - `python_discourse_analysis/`: Python implementation of the similarity measurement.
+- `java_discourse_analysis/`: Java implementation of the similarity measurement.
+
 
 ## Result
+### Top 10 Words Across Presidential Eras
 ![Top 10 TF-IDF Words Heatmap](top_10_words_heatmap.png)
 
 
