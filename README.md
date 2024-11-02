@@ -6,5 +6,7 @@ This project uses the TF-IDF statistical measure to uncover hidden connections a
 - `Main.java`: Java implementation of the similarity measurement.
 - `python_discourse_analysis/`: Python implementation of the similarity measurement.
 
-## Usage
-Provide an example of how to run each version with sample commands if applicable.
+## Result
+![Top 10 TF-IDF Words Heatmap](top_10_words_heatmap.png)
+
+
